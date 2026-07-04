@@ -15,3 +15,24 @@ inline = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="Перейти на сайт", url="https://geeks.kg")],
     [InlineKeyboardButton(text="Начинаем наше кулинарное шоу", callback_data="show_start")]
 ])
+
+
+def get_start_keyboard():
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="Зарегистрироваться")]
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=True
+    )
+
+
+def get_confirmation_keyboard():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="Подтвердить", callback_data="confirm_reg"),
+                InlineKeyboardButton(text="Начать заново", callback_data="restart_reg")
+            ]
+        ]
+    )
