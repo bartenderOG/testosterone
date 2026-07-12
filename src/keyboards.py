@@ -1,4 +1,4 @@
-#
+
 from aiogram.types import (ReplyKeyboardMarkup, 
                             KeyboardButton,
                             InlineKeyboardMarkup,
@@ -13,8 +13,9 @@ keyboard_main = ReplyKeyboardMarkup(keyboard=[
 
 
 inline = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="Перейти на сайт", url="https://geeks.kg")],
-    [InlineKeyboardButton(text="Начинаем наше кулинарное шоу", callback_data="show_start")]
+    [InlineKeyboardButton(text= "Начинаем нашу викторину", callback_data="show_start")],
+    [InlineKeyboardButton(text= "Мой счет", callback_data="my_score")],
+    [InlineKeyboardButton(text= "Перейти на сайт", url="https://geeks.kg")],
 ])
 
 

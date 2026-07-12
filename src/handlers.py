@@ -1,19 +1,29 @@
-#
+
 from aiogram import Router
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart, Command
 from aiogram import F
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import StatesGroup, State
+from aiogram.fsm.state import State, StatesGroup
+
+from src.questions import QUESTIONS
 
 from src.keyboards import keyboard_main, inline
 
 from config import users_data
 from src.keyboards import get_start_keyboard, get_confirmation_keyboard
-
-
+from db.users import get_user, create_user
+from db.results import get_score
+from db.questions import (
+    add_questions,
+    get_all_questions,
+    delete_questions
+)
 
 router = Router()
+
+class Quiz(StatesGroup):
+    waiting_answer = State()
 
 
 class RegistrationStates(StatesGroup):
@@ -24,10 +34,15 @@ class RegistrationStates(StatesGroup):
 
 @router.message(CommandStart())
 async def cmd_start(message: Message):
+    user = create_user(
+        telegram_id=message.from_user.id,
+        username=message.from_user.username or "Unknown"
+    )
+
+
     await message.answer(
-        f"Привет {message.from_user.first_name}! Я бот.",
-        reply_markup=keyboard_main
-        )
+        f'Привет {message.from_user.first_name}! Я твой раб. \n{user}',
+    )
     print(f"Пользователь {message.from_user.first_name} отправил {message} в {message.date}")
 
 
@@ -39,14 +54,111 @@ async def cmd_help(message: Message):
         "/start - начать взаимодействие с ботом\n"
         "/help - получить справку о боте\n"
         "/about - узнать информацию о боте",
-        reply_markup=inline
+        
     )
+
+@router.message(Command('game'))
+async def cmd_game(message: Message):
+    await message.answer("Начнем игру! Выберите вариант:", reply_markup=inline)
+@router.callback_query(F.data == "my_score")
+async def my_score(callback: CallbackQuery):
+    user = get_user(
+        telegram_id=callback.from_user.id
+    )
+
+    if not user:
+        await callback.answer('User not found', show_alert=True)
+
+    data = get_score(
+        user_id=user["id"]
+    )
+
+    await callback.answer('')
+    await callback.message.answer(f"Твой счет: {data['correct'] or 0}/{data["total"] or 0}", show_alert=True)
+
+
+#СТАРТ ВИКТОРИНЫ
 
 
 @router.callback_query(F.data == "show_start")
-async def show_start(callback: CallbackQuery):
+async def show_start(callback: CallbackQuery, state: FSMContext):
     await callback.answer('Вы готовы инвалиды?', show_alert=True)
-    await callback.message.answer("Начинаем наше кулинарное шоу!")
+    await state.update_data(index=0, score=0)
+    await state.set_state(Quiz.waiting_answer)
+    await callback.message.answer(f"Вопрос 1: {QUESTIONS[0]['q']}")
+
+
+@router.message(Quiz.waiting_answer)
+async def handle_answer(message: Message, state: FSMContext):
+    data = await state.get_data()
+    index = data["index"]
+    score = data["score"]
+
+
+    if message.text.lower() == QUESTIONS[index]["a"]:
+        score += 1
+        await message.answer("Правильно! +1")
+    else:
+        await message.answer(f"Неправильно! Правильный ответ: {QUESTIONS[index]['a']}")    
+    
+    index += 1
+    if index >= len(QUESTIONS):
+        await message.answer(f"Игра окончена! Ваш счет: {score}/{len(QUESTIONS)}")
+        await state.clear()
+    else:
+        await state.update_data(index=index, score=score)
+        await message.answer(f"Вопрос {index + 1}: {QUESTIONS[index]['q']}")
+
+
+
+@router.message(Command('list'))
+async def list_questions(message: Message):
+    questions = get_all_questions()
+    if not questions:
+        await message.answer("Пустота")
+        return
+    
+    result = []
+
+    for question in questions:
+        result.append(
+            f"{question['id']}, {question['questions_text']}\nОтвет: {question['quetions_answer']}"
+        )
+
+    await message.answer("\n\n".join(result))
+
+
+@router.message(Command('add'))
+async def add_question(message: Message):
+    data = message.text.replace("/add ", "")
+    
+    try:
+        text, answer = data.split("|")
+    except ValueError:
+        await message.answer(
+            "Использовать:\n/add вопрос|ответ"
+        )
+        return
+    
+    add_questions(text.strip(), answer.strip())
+    await message.answer('Добавлен вопрос!')
+
+
+
+@router.message(Command('del'))
+async def delete_question(message: Message):
+    data = message.text.replace("/del ", "")
+    if not data.isdigit():
+        await message.answer('Введи айдишник вопроса.')
+        return
+    delete_questions(int(data))
+    await message.answer('Вопрос выпилился')
+
+
+
+
+
+
 
 @router.message(Command("about"))
 async def cmd_about(message: Message):

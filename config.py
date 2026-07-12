@@ -1,4 +1,4 @@
-#
+
 from decouple import config
 
 BOT_TOKEN = config("BOT_TOKEN")
@@ -15,3 +15,8 @@ dp = Dispatcher(storage=storage)
 
 
 users_data = {}
+
+DATABASE = "db/quiz.db"
+
+
+
